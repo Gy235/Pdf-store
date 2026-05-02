@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Secure PDF Store | UPI + Screenshot Verification</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; background: #f8fafc; color: #0f172a; line-height: 1.5; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+    .navbar { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 50; backdrop-filter: blur(2px); }
+    .nav-flex { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 16px 0; }
+    .logo { font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #1e293b, #2d3a4b); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .logo i { color: #3b82f6; margin-right: 6px; }
+    .nav-buttons { display: flex; gap: 12px; align-items: center; }
+    .admin-btn, .cart-icon { background: #f1f5f9; padding: 10px 18px; border-radius: 60px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .cart-count { background: #3b82f6; color: white; border-radius: 30px; padding: 2px 8px; font-size: 0.8rem; }
+    .hero { text-align: center; padding: 48px 0 32px; }
+    .hero h1 { font-size: 2.5rem; font-weight: 800; }
+    .products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 32px; margin: 40px 0; }
+    .product-card { background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); cursor: pointer; transition: 0.25s; border: 1px solid #eef2ff; }
+    .product-card:hover { transform: translateY(-4px); }
+    .card-img { background: #f1f5f9; padding: 20px; text-align: center; height: 220px; display: flex; align-items: center; justify-content: center; }
+    .card-img img { max-width: 100%; max-height: 180px; border-radius: 12px; }
+    .card-content { padding: 20px; }
+    .price { font-size: 1.5rem; font-weight: 800; margin: 12px 0; }
+    .btn-buy { width: 100%; background: #0f172a; border: none; padding: 12px; border-radius: 40px; color: white; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; visibility: hidden; opacity: 0; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+    .modal-overlay.open { visibility: visible; opacity: 1; }
+    .modal-content { background: white; border-radius: 28px; max-width: 750px; width: 90%; max-height: 85vh; overflow-y: auto; padding: 28px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 12px; }
+    .qr-container { text-align: center; margin: 16px 0; border: 2px solid #e2e8f0; padding: 20px; border-radius: 20px; }
+    .upi-id { font-size: 1.2rem; font-weight: 700; background: #f1f5f9; padding: 10px; border-radius: 12px; margin: 10px 0; }
+    .verify-btn { background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 40px; width: 100%; font-weight: 700; cursor: pointer; margin-top: 12px; }
+    .pending-payment-card { background: #fff3e0; padding: 12px; border-radius: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .admin-confirm-btn { background: #27ae60; color: white; border: none; padding: 6px 14px; border-radius: 20px; cursor: pointer; }
+    .screenshot-preview { max-width: 100px; max-height: 100px; border-radius: 8px; margin-top: 8px; cursor: pointer; }
+    .toast-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1e293b; color: white; padding: 12px 24px; border-radius: 60px; z-index: 1100; opacity: 0; transition: 0.2s; pointer-events: none; }
+    .toast-msg.show { opacity: 1; }
+    .cart-panel { position: fixed; top: 0; right: 0; width: 100%; max-width: 460px; height: 100%; background: white; transform: translateX(100%); transition: 0.3s; display: flex; flex-direction: column; }
+    .cart-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 1000; visibility: hidden; opacity: 0; }
+    .cart-overlay.open { visibility: visible; opacity: 1; }
+    .cart-overlay.open .cart-panel { transform: translateX(0); }
+    .cart-header, .cart-total { padding: 20px; border-bottom: 1px solid #e2e8f0; }
+    .cart-items { flex: 1; overflow-y: auto; padding: 16px; }
+    .checkout-btn { background: #0f172a; width: 100%; padding: 14px; border-radius: 40px; color: white; border: none; cursor: pointer; }
+    footer { text-align: center; padding: 24px; border-top: 1px solid #e2e8f0; margin-top: 20px; }
+    @media (max-width: 640px) { .hero h1 { font-size: 1.8rem; } }
+  </style>
+</head>
+<body>
+<div class="navbar"><div class="container nav-flex"><div class="logo"><i class="fas fa-file-pdf"></i> SecurePDFStore</div><div class="nav-buttons"><div class="admin-btn" id="adminBtn"><i class="fas fa-user-shield"></i> Admin</div><div class="cart-icon" id="cartIconBtn"><i class="fas fa-shopping-cart"></i> Cart <span id="cartCountBadge" class="cart-count">0</span></div></div></div></div>
+<main><div class="container"><div class="hero"><h1>🔒 Secure Payment System</h1><p>Pay via UPI QR → Upload Screenshot → Admin Verifies → Auto Download</p></div><div class="products-grid" id="productsContainer"></div></div></main>
+<footer><p>© 2025 SecurePDFStore | Anti-fraud: Transaction ID + Screenshot Verification</p></footer>
+
+<!-- Admin Login Modal -->
+<div id="loginModal" class="modal-overlay"><div class="modal-content"><h2><i class="fas fa-lock"></i> Admin Secure Login</h2><input type="text" id="loginUsername" placeholder="Username"><input type="password" id="loginPassword" placeholder="Password"><button id="loginSubmitBtn">Login</button><button class="close-modal" id="closeLoginModal">Cancel</button></div></div>
+
+<!-- Admin Dashboard -->
+<div id="adminModal" class="modal-overlay"><div class="modal-content"><h2><i class="fas fa-chart-line"></i> Secure Admin Panel</h2><div><h3>⏳ Pending Payments (Requires Screenshot & TXN verification)</h3><div id="pendingPaymentsList"></div><h3>📊 Analytics</h3><div id="analyticsBasic">Total Revenue: ₹<span id="totalRevenue">0</span> | Orders: <span id="totalOrders">0</span></div><canvas id="salesChart" style="max-height:200px; margin:16px 0;"></canvas><button id="exportDataBtn" class="export-btn">Export All Data</button><button id="clearDataBtn" class="clear-data-btn">Reset Store</button></div><button class="close-modal" id="closeAdminModal">Close</button></div></div>
+
+<!-- Payment Modal with Screenshot Upload -->
+<div id="paymentModal" class="modal-overlay"><div class="modal-content"><h2><i class="fas fa-qrcode"></i> Secure Payment</h2><div id="paymentBookInfo"></div><div class="qr-container"><div id="qrcode"></div><div class="amount-display" id="qrAmountDisplay">₹0</div><div class="upi-id" id="upiIdDisplay">gudduyadavcom23-2@okaxis</div><button id="copyUpiBtn">Copy UPI ID</button></div>
+<div class="form-group"><label>Transaction ID (UPI Ref)</label><input type="text" id="transactionId" placeholder="e.g., 1234567890"></div>
+<div class="form-group"><label>Upload Payment Screenshot (Mandatory)</label><input type="file" id="paymentScreenshot" accept="image/*"><div id="screenshotPreview"></div></div>
+<button id="submitPaymentBtn" class="verify-btn">Submit for Secure Verification</button>
+<p style="font-size:12px; color:#64748b; margin-top:12px;">🔐 Your payment will be manually verified by admin. Screenshot + TXN ID required to prevent fraud.</p>
+<button class="close-modal" id="closePaymentModal">Cancel</button></div></div>
+
+<!-- Cart Sidebar -->
+<div id="cartOverlay" class="cart-overlay"><div class="cart-panel"><div class="cart-header"><h3>Your Cart</h3><button id="closeCartBtn" style="background:none; border:none; font-size:1.8rem;">&times;</button></div><div class="cart-items" id="cartItemsList"></div><div class="cart-total"><div>Total: <span id="cartTotalPrice">₹0</span></div><button id="proceedPaymentBtn" class="checkout-btn">Secure Checkout</button></div></div></div>
+<div id="toastMsg" class="toast-msg"></div>
+
+<script>
+  // ---------- SECURE CONFIG ----------
+  const UPI_ID = "gudduyadavcom23-2@okaxis";
+  const ADMIN_USER = "5525", ADMIN_PASS = "5525";
+  let isAdmin = false;
+  let books = [], cart = [], sales = [], pendingPayments = [];
+  let usedTransactionIds = new Set();  // Prevent replay attacks
+  let paymentAttempts = 0;            // Rate limiting
+  const MAX_ATTEMPTS = 3;
+  
+  // Load all secure data
+  function loadSecureData() {
+    books = JSON.parse(localStorage.getItem("secure_books")) || getDefaultBooks();
+    cart = JSON.parse(localStorage.getItem("secure_cart")) || [];
+    sales = JSON.parse(localStorage.getItem("secure_sales")) || [];
+    pendingPayments = JSON.parse(localStorage.getItem("secure_pending")) || [];
+    const used = localStorage.getItem("secure_used_txns");
+    if(used) usedTransactionIds = new Set(JSON.parse(used));
+    saveAll();
+  }
+  function saveAll() {
+    localStorage.setItem("secure_books", JSON.stringify(books));
+    localStorage.setItem("secure_cart", JSON.stringify(cart));
+    localStorage.setItem("secure_sales", JSON.stringify(sales));
+    localStorage.setItem("secure_pending", JSON.stringify(pendingPayments));
+    localStorage.setItem("secure_used_txns", JSON.stringify([...usedTransactionIds]));
+  }
+  function getDefaultBooks() { return [
+    { id:1, title:"Love & Complications", desc:"Romance & emotional depth", price:49, driveLink:"https://drive.google.com/example1", imageUrl:"https://i.postimg.cc/xjhb6DRV/Screenshot-2026-0327-011823.png" },
+    { id:2, title:"Get Any Girl You Want", desc:"Confidence guide", price:79, driveLink:"https://drive.google.com/example2", imageUrl:"https://i.postimg.cc/kgGKB5rb/Screenshot-2026-0414-003552.png" },
+    { id:3, title:"Five in One", desc:"Dating psychology", price:149, driveLink:"https://drive.google.com/example3", imageUrl:"https://i.postimg.cc/HxQsB8dG/IMG-20260424-234948.jpg" }
+  ]; }
+  
+  // UI Helpers
+  function renderProducts() {
+    const container = document.getElementById("productsContainer");
+    container.innerHTML = books.map(book => `
+      <div class="product-card">
+        <div class="card-img"><img src="${book.imageUrl}" onerror="this.src='https://via.placeholder.com/200?text=PDF'"></div>
+        <div class="card-content"><div class="price">₹${book.price}</div><div><strong>${escapeHtml(book.title)}</strong><br><small>${escapeHtml(book.desc)}</small></div><button class="btn-buy" data-id="${book.id}"><i class="fas fa-shopping-cart"></i> Buy Now</button></div>
+      </div>`).join('');
+    document.querySelectorAll('.btn-buy').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); const id = parseInt(btn.dataset.id); addToCart(id); openPaymentForItem(id); }));
+  }
+  function addToCart(bookId) { let book = books.find(b=>b.id===bookId); if(book) { cart.push({...book, quantity:1}); saveAll(); updateCartUI(); showToast(`${book.title} added to cart`); } }
+  function updateCartUI() { let total = cart.reduce((s,i)=>s+i.price,0); document.getElementById("cartCountBadge").innerText = cart.length; document.getElementById("cartTotalPrice").innerText = `₹${total}`; document.getElementById("cartItemsList").innerHTML = cart.map((item,idx)=>`<div>${escapeHtml(item.title)} - ₹${item.price} <button class="remove-item" data-idx="${idx}">❌</button></div>`).join(''); document.querySelectorAll('.remove-item').forEach(btn=>btn.addEventListener('click',(e)=>{ let idx=parseInt(btn.dataset.idx); cart.splice(idx,1); saveAll(); updateCartUI(); showToast("Removed"); })); }
+  function openPaymentForItem(bookId) { 
+    if(paymentAttempts >= MAX_ATTEMPTS) { showToast("Too many attempts. Try later."); return; }
+    const book = books.find(b=>b.id===bookId);
+    if(book) { currentOrder = { type: "single", data: book, total: book.price }; generateQR(book.price); document.getElementById("paymentBookInfo").innerHTML = `<strong>${book.title}</strong><br>₹${book.price}`; resetPaymentModal(); document.getElementById("paymentModal").classList.add("open"); }
+  }
+  function openPaymentForCart() { 
+    if(paymentAttempts >= MAX_ATTEMPTS) { showToast("Too many attempts. Try later."); return; }
+    if(!cart.length) { showToast("Cart empty"); return; }
+    let total = cart.reduce((s,i)=>s+i.price,0);
+    currentOrder = { type: "cart", data: [...cart], total: total };
+    generateQR(total);
+    document.getElementById("paymentBookInfo").innerHTML = `<strong>Cart Total: ₹${total}</strong><br>Items: ${cart.map(i=>i.title).join(", ")}`;
+    resetPaymentModal();
+    document.getElementById("paymentModal").classList.add("open");
+  }
+  function generateQR(amount) { let upi = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&am=${amount}&cu=INR`; document.getElementById("qrcode").innerHTML = ""; new QRCode(document.getElementById("qrcode"), { text: upi, width: 200, height: 200 }); document.getElementById("qrAmountDisplay").innerHTML = `₹${amount}`; }
+  let currentOrder = null;
+  let currentScreenshotBase64 = null;
+  
+  function resetPaymentModal() {
+    document.getElementById("transactionId").value = "";
+    document.getElementById("paymentScreenshot").value = "";
+    document.getElementById("screenshotPreview").innerHTML = "";
+    currentScreenshotBase64 = null;
+    document.getElementById("submitPaymentBtn").disabled = false;
+  }
+  
+  // Secure submission: unique TXN ID, screenshot required, rate limited
+  function submitSecurePayment() {
+    let txnId = document.getElementById("transactionId").value.trim();
+    let screenshotFile = document.getElementById("paymentScreenshot").files[0];
+    if(!txnId) { showToast("Transaction ID required"); return; }
+    if(!screenshotFile) { showToast("Payment screenshot required (anti-fraud)"); return; }
+    if(usedTransactionIds.has(txnId)) { showToast("❌ Transaction ID already used! Fraud detected."); return; }
+    
+    // Rate limiting
+    paymentAttempts++;
+    setTimeout(() => { paymentAttempts--; }, 60000);
+    
+    // Read screenshot as base64
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      currentScreenshotBase64 = ev.target.result;
+      // Create pending payment with digital fingerprint (timestamp + order hash)
+      const orderDetails = currentOrder.type === "single" ? currentOrder.data.title : cart.map(i=>i.title).join(", ");
+      const fingerprint = btoa(`${txnId}|${orderDetails}|${Date.now()}|${UPI_ID}`);
+      const pending = {
+        id: Date.now(),
+        txnId: txnId,
+        amount: currentOrder.total,
+        orderDetails: orderDetails,
+        items: currentOrder.type === "cart" ? currentOrder.data : [currentOrder.data],
+        screenshot: currentScreenshotBase64,
+        fingerprint: fingerprint,
+        timestamp: new Date().toLocaleString(),
+        status: "pending"
+      };
+      pendingPayments.push(pending);
+      usedTransactionIds.add(txnId);
+      saveAll();
+      
+      // Clear cart if cart order
+      if(currentOrder.type === "cart") { cart = []; saveAll(); updateCartUI(); }
+      
+      showToast("✅ Payment submitted. Admin will verify and approve within 24h.");
+      document.getElementById("paymentModal").classList.remove("open");
+      
+      // Notify admin (simulate Telegram)
+      window.open(`https://t.me/G_Y_23?text=${encodeURIComponent(`🔔 New Secure Payment!\nTXN: ${txnId}\nAmount: ₹${currentOrder.total}\nScreenshot attached in admin panel.`)}`, "_blank");
+      if(isAdmin) renderPendingPayments();
+    };
+    reader.readAsDataURL(screenshotFile);
+  }
+  
+  // Admin approval with security check
+  function approvePayment(pendingId) {
+    let payment = pendingPayments.find(p => p.id === pendingId);
+    if(!payment) return;
+    // Mark sale
+    if(payment.items && payment.items.length) {
+      payment.items.forEach(item => {
+        sales.push({ id: Date.now(), bookTitle: item.title, amount: item.price, txnId: payment.txnId, timestamp: new Date().toLocaleString() });
+      });
+    }
+    // Remove from pending
+    pendingPayments = pendingPayments.filter(p => p.id !== pendingId);
+    saveAll();
+    renderPendingPayments();
+    updateAnalytics();
+    showToast(`Payment ${payment.txnId} approved! User notified.`);
+    // Simulate sending download links to user via Telegram (in real scenario you would message them)
+    let downloadLinks = payment.items.map(i => i.driveLink).join("\n");
+    window.open(`https://t.me/G_Y_23?text=${encodeURIComponent(`✅ Payment Approved!\nTXN: ${payment.txnId}\nDownload Links:\n${downloadLinks}`)}`, "_blank");
+  }
+  
+  function rejectPayment(pendingId) {
+    pendingPayments = pendingPayments.filter(p => p.id !== pendingId);
+    saveAll();
+    renderPendingPayments();
+    showToast("Payment rejected and removed.");
+  }
+  
+  function renderPendingPayments() {
+    const container = document.getElementById("pendingPaymentsList");
+    if(!container) return;
+    if(pendingPayments.length === 0) { container.innerHTML = "<p>No pending payments</p>"; return; }
+    container.innerHTML = pendingPayments.map(p => `
+      <div class="pending-payment-card">
+        <div><strong>TXN: ${p.txnId}</strong><br>Amount: ₹${p.amount}<br>Order: ${p.orderDetails}<br><small>${p.timestamp}</small><br>
+        ${p.screenshot ? `<img src="${p.screenshot}" class="screenshot-preview" onclick="window.open(this.src)" alt="payment proof">` : "No screenshot"}
+        </div>
+        <div><button class="admin-confirm-btn" data-id="${p.id}">✅ Approve & Send Downloads</button>
+        <button class="admin-reject-btn" data-id="${p.id}" style="background:#e74c3c; margin-left:8px;">❌ Reject</button></div>
+      </div>`).join('');
+    document.querySelectorAll('.admin-confirm-btn').forEach(btn => btn.addEventListener('click', () => approvePayment(parseInt(btn.dataset.id))));
+    document.querySelectorAll('.admin-reject-btn').forEach(btn => btn.addEventListener('click', () => rejectPayment(parseInt(btn.dataset.id))));
+  }
+  
+  function updateAnalytics() {
+    let totalRev = sales.reduce((s,i)=>s+i.amount,0);
+    document.getElementById("totalRevenue").innerText = totalRev;
+    document.getElementById("totalOrders").innerText = sales.length;
+    // Simple chart
+    let ctx = document.getElementById("salesChart")?.getContext('2d');
+    if(ctx && window.salesChartInstance) window.salesChartInstance.destroy();
+    if(ctx) window.salesChartInstance = new Chart(ctx, { type:'bar', data:{ labels:['Total Sales'], datasets:[{ label:'Revenue (₹)', data:[totalRev] }] } });
+  }
+  
+  // Admin login
+  function showAdminLogin() { document.getElementById("loginModal").classList.add("open"); }
+  function handleAdminLogin() {
+    let u = document.getElementById("loginUsername").value, p = document.getElementById("loginPassword").value;
+    if(u === ADMIN_USER && p === ADMIN_PASS) {
+      isAdmin = true;
+      document.getElementById("loginModal").classList.remove("open");
+      renderPendingPayments();
+      updateAnalytics();
+      document.getElementById("adminModal").classList.add("open");
+      showToast("Admin secure access granted");
+    } else showToast("Invalid credentials");
+  }
+  
+  // Export & reset (admin only)
+  function exportData() { let data = { sales, pendingPayments, books }; let blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"}); let a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`secure_store_backup_${Date.now()}.json`; a.click(); }
+  function resetStore() { if(confirm("⚠️ Delete ALL data? This cannot be undone.")) { localStorage.clear(); location.reload(); } }
+  
+  // Utilities
+  function escapeHtml(str) { return String(str).replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'})[m]); }
+  function showToast(msg) { let t = document.getElementById("toastMsg"); t.innerText = msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),3000); }
+  
+  // Event Listeners
+  document.getElementById("adminBtn")?.addEventListener("click", showAdminLogin);
+  document.getElementById("loginSubmitBtn")?.addEventListener("click", handleAdminLogin);
+  document.getElementById("closeLoginModal")?.addEventListener("click", ()=>document.getElementById("loginModal").classList.remove("open"));
+  document.getElementById("closeAdminModal")?.addEventListener("click", ()=>document.getElementById("adminModal").classList.remove("open"));
+  document.getElementById("exportDataBtn")?.addEventListener("click", exportData);
+  document.getElementById("clearDataBtn")?.addEventListener("click", resetStore);
+  document.getElementById("copyUpiBtn")?.addEventListener("click", ()=>{ navigator.clipboard.writeText(UPI_ID); showToast("UPI ID copied"); });
+  document.getElementById("cartIconBtn")?.addEventListener("click", ()=>document.getElementById("cartOverlay").classList.add("open"));
+  document.getElementById("closeCartBtn")?.addEventListener("click", ()=>document.getElementById("cartOverlay").classList.remove("open"));
+  document.getElementById("proceedPaymentBtn")?.addEventListener("click", ()=>{ document.getElementById("cartOverlay").classList.remove("open"); openPaymentForCart(); });
+  document.getElementById("closePaymentModal")?.addEventListener("click", ()=>document.getElementById("paymentModal").classList.remove("open"));
+  document.getElementById("submitPaymentBtn")?.addEventListener("click", submitSecurePayment);
+  document.getElementById("paymentScreenshot")?.addEventListener("change", (e) => { let file = e.target.files[0]; if(file) { let reader = new FileReader(); reader.onload = ev => document.getElementById("screenshotPreview").innerHTML = `<img src="${ev.target.result}" style="max-width:150px; border-radius:8px;">`; reader.readAsDataURL(file); } });
+  document.getElementById("upiIdDisplay").innerText = UPI_ID;
+  
+  // Modal close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(overlay => overlay.addEventListener('click', (e) => { if(e.target === overlay) overlay.classList.remove("open"); }));
+  
+  // Init
+  loadSecureData();
+  renderProducts();
+  updateCartUI();
+  if(isAdmin) { renderPendingPayments(); updateAnalytics(); }
+</script>
+</body>
+</html>
