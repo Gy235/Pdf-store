@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cholte Store</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f5f5f5; }
+    .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; max-width: 1000px; margin: auto; }
+    .product { background: white; border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .product img { width: 100%; height: 200px; object-fit: cover; border-radius: 8px; }
+    .price { color: #e91e63; font-weight: bold; font-size: 1.2em; margin: 10px 0; }
+    button { background: #25D366; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; }
+    .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 450px; border-radius: 12px; max-height: 90vh; overflow-y: auto; }
+    input, textarea { width: 100%; padding: 10px; margin: 6px 0; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+    .qr-section { text-align: center; margin: 15px 0; }
+    .qr-section img { max-width: 200px; border: 2px dashed #ccc; padding: 5px; border-radius: 8px; }
+    .file-label { background: #eee; padding: 10px; display: block; text-align: center; border: 2px dashed #aaa; cursor: pointer; margin: 10px 0; }
+    .close-btn { float: right; font-size: 24px; cursor: pointer; background: none; border: none; }
+  </style>
+</head>
+<body>
+  <h1 style="text-align:center;">🛍️ Cholte Store</h1>
+  <div class="products" id="products"></div>
+
+  <!-- Order Modal -->
+  <div class="modal" id="orderModal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeModal()">&times;</button>
+      <h2>📝 Place Order</h2>
+      <input type="text" id="pName" readonly>
+      <input type="text" id="cName" placeholder="Full Name" required>
+      <input type="tel" id="cPhone" placeholder="Phone Number" required>
+      <textarea id="cAddr" placeholder="Full Address" rows="2" required></textarea>
+      <input type="number" id="cQty" value="1" min="1" required>
+
+      <!-- QR Code Payment Section -->
+      <div class="qr-section">
+        <p><b>Pay using UPI</b></p>
+        <!-- ⚠️ Replace with YOUR actual QR code image URL -->
+        <img id="qrImage" src="https://i.imgur.com/your-upi-qr.png" alt="UPI QR" style="width:200px;">
+        <p style="font-size:0.9em; color:#555;">Scan QR, then fill below</p>
+      </div>
+
+      <input type="text" id="transId" placeholder="Transaction ID / UTR Number" required>
+      
+      <div class="file-label" onclick="document.getElementById('screenshot').click()">
+        📎 <span id="fileLabelText">Upload Payment Screenshot</span>
+        <input type="file" id="screenshot" accept="image/*" style="display:none;" onchange="updateFileName()">
+      </div>
+
+      <button onclick="submitOrder()">📍 Send Order (Telegram)</button>
+      <button onclick="closeModal()" style="background:#aaa; margin-top:5px;">Cancel</button>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ Put your Google Apps Script Web App URL below
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby.../exec";
+
+    // Load products from script
+    async function loadProducts() {
+      const res = await fetch(SCRIPT_URL);
+      const products = await res.json();
+      document.getElementById("products").innerHTML = products.map(p => `
+        <div class="product">
+          <img src="${p.image || 'https://via.placeholder.com/200'}" alt="${p.name}">
+          <h3>${p.name}</h3>
+          <div class="price">₹${p.price}</div>
+          <button onclick="openModal('${p.name}')">Order Now</button>
+        </div>
+      `).join("");
+    }
+
+    function openModal(product) {
+      document.getElementById("pName").value = product;
+      document.getElementById("orderModal").style.display = "block";
+      document.getElementById("fileLabelText").textContent = "Upload Payment Screenshot";
+      document.getElementById("screenshot").value = "";
+    }
+
+    function closeModal() {
+      document.getElementById("orderModal").style.display = "none";
+    }
+
+    function updateFileName() {
+      var file = document.getElementById("screenshot").files[0];
+      document.getElementById("fileLabelText").textContent = file ? file.name : "Upload Payment Screenshot";
+    }
+
+    async function submitOrder() {
+      const screenshotFile = document.getElementById("screenshot").files[0];
+      if (!screenshotFile) {
+        alert("Please upload payment screenshot");
+        return;
+      }
+
+      // Convert file to base64
+      const reader = new FileReader();
+      reader.onload = async function() {
+        const order = {
+          product: document.getElementById("pName").value,
+          name: document.getElementById("cName").value,
+          phone: document.getElementById("cPhone").value,
+          address: document.getElementById("cAddr").value,
+          quantity: document.getElementById("cQty").value,
+          transactionId: document.getElementById("transId").value,
+          screenshot: reader.result  // base64 data URL
+        };
+
+        try {
+          await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify(order),
+            headers: { "Content-Type": "application/json" }
+          });
+          alert("✅ Order sent! You'll receive it on Telegram.");
+          closeModal();
+        } catch (err) {
+          alert("Error sending order. Please try again.");
+        }
+      };
+      reader.readAsDataURL(screenshotFile);
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
